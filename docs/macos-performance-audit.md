@@ -35,10 +35,13 @@ input source khác tiếng Anh, macro, kiểm tra chính tả và smart switch
 | Chỉ engine C++, 100.000 chuỗi `as ` | 300.000 | 0 | 10.87 ms | 10.85 ms |
 
 Probe sau sửa dùng cùng object Release, fake ranh giới tap và phép gõ như
-trên. Với workaround bật, query giảm từ 1.000 xuống 500; wall time còn
-86.37 ms và CPU còn 23.87 ms. Với workaround tắt, số query vẫn 500 và CPU
-24.97 ms (baseline 25.20 ms). Engine C++ đo 10.34 ms CPU cho 300.000 phím.
-Đây là một lượt probe tổng hợp, không phải phép đo dài hạn hoặc gõ thật.
+trên, chạy ba cặp baseline/sau sửa. Median khi bật workaround: query giảm
+từ 1.000 còn 500, wall time từ 167.47 còn 84.78 ms, CPU từ 46.31 còn
+23.68 ms (giảm khoảng 49%). Khi tắt workaround, query vẫn 500; CPU median
+là 23.83 ms trước và 23.97 ms sau. Engine C++ median lần lượt 10.03 và
+10.21 ms CPU cho 300.000 phím. Đây là probe tổng hợp, không phải phép đo
+dài hạn hoặc gõ thật. Mức giảm RAM chưa được đo trực tiếp; phần sửa RAM
+được xác định từ ownership leak ở nhánh TIS và tài nguyên qua sleep/wake.
 
 Hai dòng đầu là hai cấu hình khác nhau, không phải kết quả trước/sau
 một bản tối ưu. Việc tắt workaround làm thay đổi hành vi nên không
