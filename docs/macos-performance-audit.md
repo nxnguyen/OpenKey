@@ -9,7 +9,7 @@ engine Telex C++.
 Đã thay `/Applications/OpenKey.app` bằng 2.0.6/build 51 universal
 (arm64 + x86_64), từ commit code `0526299`. App đã khởi chạy. Bundle
 build 50 trước đó được giữ làm bản phục hồi ngoài repository;
-preferences người dùng không bị thay đổi. File universal có checksum
+preferences người dùng không bị thay đổi. Gói ZIP universal có checksum
 SHA-256 `e30ab9c1529a79806c1dca1d254646d9590b0fcea047e07edae4f6d076d83fb3`.
 
 Bản tự build có chữ ký ad hoc nên cần bật lại Accessibility cho
@@ -37,9 +37,9 @@ là 23.83 ms trước và 23.97 ms sau. Engine C++ median lần lượt 10.03 v�
 dài hạn hoặc gõ thật. Mức giảm RAM chưa được đo trực tiếp; phần sửa RAM
 được xác định từ ownership leak ở nhánh TIS và tài nguyên qua sleep/wake.
 
-Hai dòng đầu là hai cấu hình khác nhau, không phải kết quả trước/sau
-một bản tối ưu. Việc tắt workaround làm thay đổi hành vi nên không
-đề xuất tự tắt cấu hình hiện tại chỉ để giảm số đo.
+Hai dòng đầu trong bảng baseline là hai cấu hình khác nhau, không phải
+kết quả trước/sau một bản tối ưu. Việc tắt workaround làm thay đổi hành
+vi nên không đề xuất tự tắt cấu hình hiện tại chỉ để giảm số đo.
 
 ## Các sửa đổi đã áp dụng
 
