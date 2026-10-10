@@ -56,8 +56,10 @@ PY
 codesign --force --sign - "$helper"
 codesign --force --sign - "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
-lipo -verify_arch arm64 x86_64 "$app/Contents/MacOS/OpenKey"
-lipo -verify_arch arm64 x86_64 "$helper/Contents/MacOS/OpenKeyHelper"
+for architecture in arm64 x86_64; do
+    lipo "$app/Contents/MacOS/OpenKey" -verify_arch "$architecture"
+    lipo "$helper/Contents/MacOS/OpenKeyHelper" -verify_arch "$architecture"
+done
 ditto -c -k --sequesterRsrc --keepParent "$app" "$output_dir/OpenKey-2.0.6-recovery-universal.zip"
 shasum -a 256 "$output_dir/OpenKey-2.0.6-recovery-universal.zip" > "$output_dir/SHA256SUMS.txt"
 echo "Built: $app"
