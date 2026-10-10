@@ -323,6 +323,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 232EDA6821F1B33F0085D362 /* Build configuration list for PBXNativeTarget "OpenKey" */;
 			buildPhases = (
+				7A55CB59A0D04BDBAC0F9C11 /* Build Rust platform library */,
 				232EDA5021F1B33E0085D362 /* Sources */,
 				232EDA5121F1B33E0085D362 /* Frameworks */,
 				232EDA5221F1B33E0085D362 /* Resources */,
@@ -398,6 +399,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		7A55CB59A0D04BDBAC0F9C11 /* Build Rust platform library */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../../../rust-platform/Cargo.toml",
+				"$(SRCROOT)/../../../rust-platform/src/lib.rs",
+			);
+			name = "Build Rust platform library";
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/libopenkey_platform.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"${SRCROOT}/../../../scripts/build-rust-platform.sh\" \"${DERIVED_FILE_DIR}\"";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		232EDA5021F1B33E0085D362 /* Sources */ = {
@@ -580,10 +602,15 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DERIVED_FILE_DIR)",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				MARKETING_VERSION = 2.0.4;
 				OTHER_LDFLAGS = (
 					"-lc++\n-lc++",
+					"-lopenkey_platform",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.tuyenmai.openkey;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -606,10 +633,15 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DERIVED_FILE_DIR)",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				MARKETING_VERSION = 2.0.4;
 				OTHER_LDFLAGS = (
 					"-lc++\n-lc++",
+					"-lopenkey_platform",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.tuyenmai.openkey;
 				PRODUCT_NAME = "$(TARGET_NAME)";

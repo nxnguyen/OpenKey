@@ -1,0 +1,15 @@
+[package]
+name = "openkey-platform"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "openkey_platform"
+crate-type = ["staticlib"]
+
+[profile.release]
+panic = "abort"
+strip = true
+lto = true
+codegen-units = 1

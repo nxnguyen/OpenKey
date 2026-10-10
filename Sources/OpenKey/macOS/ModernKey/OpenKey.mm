@@ -71,6 +71,7 @@ extern "C" {
 
     //defined in OpenKeyManager.m
     extern void OpenKeyReEnableEventTap(void);
+    extern int openkey_current_input_source_is_english(void);
     
     Uint16 _newCharString[MAX_UNICODE_STRING];
     Uint16 _newCharSize;
@@ -89,7 +90,24 @@ extern "C" {
     
     NSString* _frontMostApp = @"UnknownApp";
     
-    void OpenKeyInit() {
+    void OpenKeyShutdown() {
+        if (eventBackSpaceDown != NULL) {
+            CFRelease(eventBackSpaceDown);
+            eventBackSpaceDown = NULL;
+        }
+        if (eventBackSpaceUp != NULL) {
+            CFRelease(eventBackSpaceUp);
+            eventBackSpaceUp = NULL;
+        }
+        if (myEventSource != NULL) {
+            CFRelease(myEventSource);
+            myEventSource = NULL;
+        }
+    }
+
+    BOOL OpenKeyInit() {
+        OpenKeyShutdown();
+
         //load saved data
         vFreeMark = 0;//(int)[[NSUserDefaults standardUserDefaults] integerForKey:@"FreeMark"];
         LOAD_DATA(vCodeTable, CodeTable); if (vCodeTable < 0) vCodeTable = 0;
@@ -118,10 +136,17 @@ extern "C" {
         LOAD_DATA(vPerformLayoutCompat, vPerformLayoutCompat);
         
         myEventSource = CGEventSourceCreate(kCGEventSourceStatePrivate);
+        if (myEventSource == NULL) {
+            return NO;
+        }
         pData = (vKeyHookState*)vKeyInit();
 
         eventBackSpaceDown = CGEventCreateKeyboardEvent (myEventSource, 51, true);
         eventBackSpaceUp = CGEventCreateKeyboardEvent (myEventSource, 51, false);
+        if (eventBackSpaceDown == NULL || eventBackSpaceUp == NULL) {
+            OpenKeyShutdown();
+            return NO;
+        }
         
         //init and load macro data
         NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
@@ -145,6 +170,7 @@ extern "C" {
         if (convertToolHotKey == 0) {
             convertToolHotKey = EMPTY_HOTKEY;
         }
+        return YES;
     }
     
     void RequestNewSession() {
@@ -178,26 +204,36 @@ extern "C" {
         return false;
     }
 
-    BOOL isSpotlightVisible() {
+    struct SpotlightVisibilityCache {
+        BOOL hasValue = NO;
+        BOOL isVisible = NO;
+    };
+
+    BOOL isSpotlightVisible(SpotlightVisibilityCache& cache) {
+        if (cache.hasValue) return cache.isVisible;
+
         NSArray *windows = CFBridgingRelease(CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
                                                                         kCGNullWindowID));
+        cache.hasValue = YES;
+        cache.isVisible = NO;
         for (NSDictionary *window in windows) {
             if ([[window objectForKey:(__bridge NSString *)kCGWindowOwnerName] isEqualToString:@"Spotlight"]) {
-                return true;
+                cache.isVisible = YES;
+                break;
             }
         }
-        return false;
+        return cache.isVisible;
     }
 
-    BOOL shouldUseRecommendWorkaround(NSString* topApp) {
+    BOOL shouldUseRecommendWorkaround(NSString* topApp, SpotlightVisibilityCache& cache) {
         if (!vFixRecommendBrowser) return false;
-        if (isSpotlightVisible()) return false;
-        if (topApp == nil) return true;
-        return ![_recommendWorkaroundDisabledApp containsObject:topApp];
+        if (topApp != nil && [_recommendWorkaroundDisabledApp containsObject:topApp]) return false;
+        return !isSpotlightVisible(cache);
     }
 
-    BOOL shouldUseSelectionReplacement(NSString* topApp) {
-        return isSpotlightVisible() || [_recommendWorkaroundDisabledApp containsObject:topApp];
+    BOOL shouldUseSelectionReplacement(NSString* topApp, SpotlightVisibilityCache& cache) {
+        if (topApp != nil && [_recommendWorkaroundDisabledApp containsObject:topApp]) return true;
+        return isSpotlightVisible(cache);
     }
     
     void saveSmartSwitchKeyData() {
@@ -544,9 +580,9 @@ extern "C" {
         startNewSession();
     }
     
-    void handleMacro() {
+    void handleMacro(SpotlightVisibilityCache& spotlightCache) {
         //fix autocomplete
-        if (shouldUseRecommendWorkaround(FRONT_APP)) {
+        if (shouldUseRecommendWorkaround(FRONT_APP, spotlightCache)) {
             SendEmptyCharacter();
             pData->backspaceCount++;
         }
@@ -678,6 +714,7 @@ extern "C" {
             return event;
         
         _proxy = proxy;
+        SpotlightVisibilityCache spotlightCache;
         
         //If is in english mode
         if (vLanguage == 0) {
@@ -688,7 +725,7 @@ extern "C" {
                              OTHER_CONTROL_KEY);
                 
                 if (pData->code == vReplaceMaro) { //handle macro in english mode
-                    handleMacro();
+                    handleMacro(spotlightCache);
                     return NULL;
                 }
             }
@@ -703,21 +740,9 @@ extern "C" {
 
         //if "turn off Vietnamese when in other language" mode on
         if(vOtherLanguage){
-            TISInputSourceRef isource = TISCopyCurrentKeyboardInputSource();
-            if ( isource != NULL )
-            {
-                CFArrayRef languages = (CFArrayRef) TISGetInputSourceProperty(isource, kTISPropertyInputSourceLanguages);
-                
-                if (CFArrayGetCount(languages) > 0) {
-                    CFStringRef langRef = (CFStringRef)CFArrayGetValueAtIndex(languages, 0);
-                    NSString *currentLanguage = (__bridge NSString *)langRef;
-                    if(![currentLanguage isLike:@"en"]){
-                        return event;
-                    }
-                    CFRelease(langRef);
-                    CFRelease(isource);
-                }
-            }
+            // Rust owns the copied input source with RAII. If macOS cannot
+            // report a language, keep the previous fail-open behavior.
+            if (openkey_current_input_source_is_english() == 0) return event;
         }
         
         //handle keyboard
@@ -750,7 +775,7 @@ extern "C" {
             } else if (pData->code == vWillProcess || pData->code == vRestore || pData->code == vRestoreAndStartNewSession) { //handle result signal
                 
                 //fix autocomplete
-                if (shouldUseRecommendWorkaround(FRONT_APP) && pData->extCode != 4) {
+                if (pData->extCode != 4 && shouldUseRecommendWorkaround(FRONT_APP, spotlightCache)) {
                     if (vFixChromiumBrowser && [_unicodeCompoundApp containsObject:FRONT_APP]) {
                         if (pData->backspaceCount > 0) {
                             SendShiftAndLeftArrow();
@@ -764,7 +789,7 @@ extern "C" {
                     }
                 }
 
-                if (shouldUseSelectionReplacement(FRONT_APP) && pData->backspaceCount > 0) {
+                if (pData->backspaceCount > 0 && shouldUseSelectionReplacement(FRONT_APP, spotlightCache)) {
                     for (_i = 0; _i < pData->backspaceCount; _i++) {
                         SendShiftAndLeftArrow();
                     }
@@ -795,7 +820,7 @@ extern "C" {
                     }
                 }
             } else if (pData->code == vReplaceMaro) { //MACRO
-                handleMacro();
+                handleMacro(spotlightCache);
             }
             
             return NULL;

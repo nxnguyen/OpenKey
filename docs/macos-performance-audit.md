@@ -1,8 +1,8 @@
 # Đánh giá RAM/CPU của OpenKey trên macOS
 
-Phạm vi: kiểm tra bản fork tại commit `9201ee9`, đo thử độc lập với bàn
-phím thật. Đây là đánh giá và đề xuất; các tối ưu dưới đây chưa được áp
-dụng vào bản 2.0.6 đã cài.
+Phạm vi: baseline được đo trên bản fork tại commit `a059011`. Các sửa đổi
+CPU/RAM bên dưới đã được áp dụng trong build 2.0.6/build 51; không thay
+engine Telex C++.
 
 ## Đã thay bản ứng dụng
 
@@ -34,35 +34,36 @@ input source khác tiếng Anh, macro, kiểm tra chính tả và smart switch
 | 500 chuỗi `as `, workaround autocomplete bật | 1.500 | 1.000 | 171.81 ms | 46.05 ms |
 | Chỉ engine C++, 100.000 chuỗi `as ` | 300.000 | 0 | 10.87 ms | 10.85 ms |
 
+Probe sau sửa dùng cùng object Release, fake ranh giới tap và phép gõ như
+trên. Với workaround bật, query giảm từ 1.000 xuống 500; wall time còn
+86.37 ms và CPU còn 23.87 ms. Với workaround tắt, số query vẫn 500 và CPU
+24.97 ms (baseline 25.20 ms). Engine C++ đo 10.34 ms CPU cho 300.000 phím.
+Đây là một lượt probe tổng hợp, không phải phép đo dài hạn hoặc gõ thật.
+
 Hai dòng đầu là hai cấu hình khác nhau, không phải kết quả trước/sau
 một bản tối ưu. Việc tắt workaround làm thay đổi hành vi nên không
 đề xuất tự tắt cấu hình hiện tại chỉ để giảm số đo.
 
-## Các điểm cần ưu tiên
+## Các sửa đổi đã áp dụng
 
-1. **Giảm công việc trong callback.** `isSpotlightVisible()` gọi
-   `CGWindowListCopyWindowInfo` để lấy thông tin toàn bộ cửa sổ. Hai hàm
-   `shouldUseRecommendWorkaround` và `shouldUseSelectionReplacement`
-   có thể gọi nó hai lần cho cùng một phím. Nên dùng một snapshot trong
-   cùng callback, đánh giá điều kiện rẻ trước khi hỏi WindowServer.
-   Nếu cache qua nhiều callback, phải kiểm tra kỹ lúc mở/đóng Spotlight
-   để không làm sai cách thay chữ. Apple cũng mô tả tạo dictionary cửa
-   sổ là thao tác tương đối tốn chi phí.
-2. **Sửa ownership input source.** Nhánh `vOtherLanguage` đọc input
-   source trên cả key down và key up. Trường hợp ngôn ngữ khác `en`
-   trả về trước `CFRelease(isource)`; trường hợp mảng ngôn ngữ rỗng
-   cũng bỏ qua release. Nhánh `en` lại `CFRelease(langRef)` dù chuỗi
-   này là phần tử mượn từ mảng. SDK ghi rõ các property của
-   `TISGetInputSourceProperty` theo Get rule, không được tự release.
-   Cần cân bằng ownership trên mọi nhánh và có test tiếng Anh,
-   tiếng Việt/ngôn ngữ khác, NULL và mảng rỗng. Chưa đo lượng leak của
-   nhánh này; nó được tắt trong phép đo trên.
-3. **Dọn tài nguyên khi sleep/wake.** `OpenKeyInit` tạo event source và
-   hai backspace events, còn `stopEventTap` chỉ dọn tap/run-loop source.
-   Lần init tiếp theo ghi đè các reference đó. Cần bổ sung teardown
-   tương ứng và kiểm thử nhiều vòng sleep/wake, init thất bại, stop
-   lặp lại. Chưa đo lượng RAM tích lũy thực tế.
-4. **Giới hạn lịch sử gõ nếu cần.** Engine lưu các từ của dòng vào
+1. **Giảm công việc trong callback.** Các quyết định workaround dùng
+   chung một snapshot Spotlight trong callback. Kiểm tra cấu hình, app
+   Spotlight và số thao tác thay chữ trước khi gọi WindowServer. Trong
+   probe 500 chuỗi, số query giảm một nửa khi workaround bật. Cache không
+   tồn tại qua callback nên trạng thái Spotlight không bị cũ.
+2. **Sửa ownership input source bằng Rust.** Nhánh `vOtherLanguage` gọi
+   helper Rust nhỏ, không dùng allocator/std. `TISCopy...` được giữ trong
+   wrapper RAII và luôn `CFRelease` khi thoát; language array và phần tử
+   lấy từ Get API vẫn là dữ liệu mượn, không release. Kết quả không đọc
+   được sẽ fail-open như nhánh nguồn null trước đây. Helper giữ đúng phép
+   so khớp chính xác `en` của `isLike:@"en"` cũ. Leak xảy ra khi tùy chọn
+   tắt OpenKey ở input language khác tiếng Anh được bật; nếu bật, nhánh
+   này chạy trên mỗi key down/up.
+3. **Dọn tài nguyên khi sleep/wake và init lỗi.** `OpenKeyShutdown`
+   giải phóng/null event source và hai backspace events. `stopEventTap`
+   dọn run-loop source, tap và gọi shutdown; mọi đường init thất bại cũng
+   dọn tài nguyên đã tạo. Khởi tạo lại bắt đầu từ trạng thái sạch.
+4. **Lịch sử gõ vẫn giữ nguyên.** Engine lưu các từ của dòng vào
    `_typingStates` để phục hồi khi backspace; chỉ clear khi ngắt dòng,
    điều hướng hoặc tác vụ khác. Dòng cực dài có thể giữ nhiều trạng
    thái. Cần đo riêng rồi mới chọn giới hạn vì giới hạn làm thay đổi
@@ -70,10 +71,9 @@ một bản tối ưu. Việc tắt workaround làm thay đổi hành vi nên kh
 
 ## Công nghệ phù hợp
 
-- **Giữ C++ và AppKit, tối ưu tích hợp:** engine hiện đã là mã native
-  và rất nhẹ trong phép đo. Thay toàn bộ bằng Swift/Rust chưa có bằng
-  chứng sẽ giảm RAM/CPU. Rust có thể hỗ trợ kiểm soát ownership, nhưng
-  vẫn cần quản lý đúng các API Core Foundation qua FFI.
+- **Rust ở ranh giới ownership, C++ ở engine:** Rust chỉ bao bọc phần
+  Core Foundation có lỗi sở hữu cụ thể; engine Telex vẫn C++ vì đã chạy
+  khoảng 10 ms/300.000 phím và không có lợi ích đo được khi viết lại.
 - **SMAppService.mainApp:** API từ macOS 13 cho đăng ký chính ứng dụng
   chạy cùng máy. Có thể thay helper chỉ dùng để mở app chính; cần xử
   lý đăng ký cũ và quyền Login Items khi chuyển. Lợi ích RAM chưa đo.
@@ -96,5 +96,7 @@ bộ gõ. Bản đã cài vẫn là bản phục hồi timeout, không phải b�
 - [InputMethodKit](https://developer.apple.com/documentation/inputmethodkit)
 - [SMAppService.mainApp](https://developer.apple.com/documentation/servicemanagement/smappservice/mainapp)
 
-Quy tắc property của TIS được đối chiếu trực tiếp trong SDK Xcode:
-`Carbon.framework/Frameworks/HIToolbox.framework/Headers/TextInputSources.h`.
+Quy tắc property TIS (mã ngôn ngữ BCP 47; property mượn từ Get API) và
+`NSString isLike:` được đối chiếu trong SDK Xcode:
+`Carbon.framework/Frameworks/HIToolbox.framework/Headers/TextInputSources.h`
+và `Foundation.framework/Headers/NSScriptWhoseTests.h`.

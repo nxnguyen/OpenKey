@@ -8,7 +8,8 @@
 
 #import "OpenKeyManager.h"
 
-extern void OpenKeyInit(void);
+extern BOOL OpenKeyInit(void);
+extern void OpenKeyShutdown(void);
 
 extern CGEventRef OpenKeyCallback(CGEventTapProxy proxy,
                                   CGEventType type,
@@ -37,9 +38,15 @@ static CFRunLoopSourceRef runLoopSource;
 +(BOOL)initEventTap {
     if (_isInited)
         return true;
+
+    // Clean up a previous partial initialization before trying again.
+    [self stopEventTap];
     
     //init modernKey
-    OpenKeyInit();
+    if (!OpenKeyInit()) {
+        OpenKeyShutdown();
+        return NO;
+    }
     
     // Create an event tap. We are interested in key presses.
     eventMask = ((1 << kCGEventKeyDown) |
@@ -58,15 +65,19 @@ static CFRunLoopSourceRef runLoopSource;
                                 NULL);
     
     if (!eventTap) {
-        
         fprintf(stderr, "failed to create event tap\n");
+        OpenKeyShutdown();
         return NO;
     }
     
-    _isInited = YES;
-    
     // Create a run loop source.
     runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0);
+    if (!runLoopSource) {
+        [self stopEventTap];
+        return NO;
+    }
+
+    _isInited = YES;
     
     // Add to the current run loop.
     CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
@@ -86,17 +97,18 @@ void OpenKeyReEnableEventTap(void) {
 }
 
 +(BOOL)stopEventTap {
-    if (_isInited) { //release all object
+    if (runLoopSource) {
         CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
         CFRelease(runLoopSource);
         runLoopSource = nil;
-        
+    }
+    if (eventTap) {
         CFMachPortInvalidate(eventTap);
         CFRelease(eventTap);
         eventTap = nil;
-        
-        _isInited = false;
     }
+    _isInited = NO;
+    OpenKeyShutdown();
     return YES;
 }
 

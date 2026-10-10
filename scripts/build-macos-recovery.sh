@@ -16,7 +16,7 @@ xcodebuild -quiet -project "$repo_dir/Sources/OpenKey/macOS/OpenKey.xcodeproj" \
     -scheme OpenKey -configuration Release -derivedDataPath "$output_dir/DerivedData" \
     CODE_SIGNING_ALLOWED=NO MACOSX_DEPLOYMENT_TARGET=12.0 \
     ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO \
-    MARKETING_VERSION=2.0.6 CURRENT_PROJECT_VERSION=50 build \
+    MARKETING_VERSION=2.0.6 CURRENT_PROJECT_VERSION=51 build \
     > "$output_dir/build.log" 2>&1 || {
     cat "$output_dir/build.log"
     exit 1
@@ -60,6 +60,6 @@ for architecture in arm64 x86_64; do
     lipo "$app/Contents/MacOS/OpenKey" -verify_arch "$architecture"
     lipo "$helper/Contents/MacOS/OpenKeyHelper" -verify_arch "$architecture"
 done
-ditto -c -k --sequesterRsrc --keepParent "$app" "$output_dir/OpenKey-2.0.6-recovery-universal.zip"
-shasum -a 256 "$output_dir/OpenKey-2.0.6-recovery-universal.zip" > "$output_dir/SHA256SUMS.txt"
+ditto -c -k --sequesterRsrc --keepParent "$app" "$output_dir/OpenKey-2.0.6-build51-macos-universal.zip"
+shasum -a 256 "$output_dir/OpenKey-2.0.6-build51-macos-universal.zip" > "$output_dir/SHA256SUMS.txt"
 echo "Built: $app"
