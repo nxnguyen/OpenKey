@@ -4,24 +4,18 @@ Phạm vi: baseline được đo trên bản fork tại commit `a059011`. Các s
 CPU/RAM bên dưới đã được áp dụng trong build 2.0.6/build 51; không thay
 engine Telex C++.
 
-## Đã thay bản ứng dụng
+## Bản đã cài
 
-Đã thay `/Applications/OpenKey.app` bằng 2.0.6/build 50, xác minh chữ ký
-và checksum executable khớp bản build. Sao lưu bundle và preferences
-cũ trong thư mục backup riêng bên ngoài repository. Dừng bản cũ và
-login helper cũ trước khi thay.
+Đã thay `/Applications/OpenKey.app` bằng 2.0.6/build 51 universal
+(arm64 + x86_64), từ commit code `0526299`. App đã khởi chạy. Bundle
+build 50 trước đó được giữ làm bản phục hồi ngoài repository;
+preferences người dùng không bị thay đổi. File universal có checksum
+SHA-256 `e30ab9c1529a79806c1dca1d254646d9590b0fcea047e07edae4f6d076d83fb3`.
 
-Bản mới khởi chạy nhưng đang ở hộp thoại cấp quyền Accessibility.
-Stack sample xác nhận `AppDelegate askPermission` → `NSAlert runModal`;
-`CGGetEventTapList` chưa có tap của PID mới. Người dùng chọn cấp quyền
-sau, nên chưa kiểm tra được gõ tiếng Việt thật sau khi cài.
-
-## Số đo
-
-Trong trạng thái chờ cấp quyền: CPU tức thời 0.0%, physical footprint
-25.9 MiB, peak 26.7 MiB. Không coi đây là số đo lúc đang gõ. RSS có thể
-giảm do nén/swap, không dùng RSS để so sánh trực tiếp với bản cũ đã chạy
-nhiều giờ. Kích thước bundle mới trên đĩa khoảng 1.3 MiB.
+Bản tự build có chữ ký ad hoc nên cần bật lại Accessibility cho
+`/Applications/OpenKey.app`. Chưa đo được gõ tiếng Việt thật cho tới khi
+quyền này được bật; probe hiệu năng bên dưới chạy bằng callback thật và
+tap giả lập.
 
 Probe liên kết object Release thật, fake ranh giới tạo tap và gửi phím để
 không gõ vào ứng dụng người dùng. Gọi WindowServer vẫn là API thật;
