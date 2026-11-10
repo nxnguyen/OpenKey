@@ -179,11 +179,6 @@ extern bool convertToolDontAlertWhenCompleted;
     }
     [[NSUserDefaults standardUserDefaults] setInteger:1 forKey:@"NonFirstTime"];
     
-    //check update if enable
-    NSInteger dontCheckUpdate = [[NSUserDefaults standardUserDefaults] integerForKey:@"DontCheckUpdate"];
-    if (!dontCheckUpdate)
-        [OpenKeyManager checkNewVersion:nil callbackFunc:nil];
-    
     //correct run on startup
     NSInteger val = [[NSUserDefaults standardUserDefaults] integerForKey:@"RunOnStartup"];
     [appDelegate setRunOnStartup:val];
